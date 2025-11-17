@@ -1,32 +1,47 @@
 # pgie_config_yolo.txt (animal-only, DeepStream 6.3 paths)
+# -----------------------------------------------------------------------------
+# This file configures the primary GIE (pgie) in DeepStream to run a YOLO model
+# exported with TensorRT.  Each property below is annotated to make it easier to
+# remember what knobs can be tweaked when moving between different edge devices
+# or models.
 [property]
-net-scale-factor=0.0039215697906911373
+net-scale-factor=0.0039215697906911373  # 1/255 normalization to match YOLO training
+# gpu-id determines which GPU DeepStream uses; "0" means the first GPU.
 gpu-id=0
-batch-size=1 
+# The ONNX->TensorRT engine was built for batch size 1, so keep this aligned.
+batch-size=1
+# Workspace in MB for TensorRT optimizations; 2048MB keeps builds from failing.
 workspace-size=2048
+# 0 = detector; change to 1 if you ever convert this into a classifier.
 network-type=0
-network-mode=2   
+# 2 = FP16 precision.  Use 0 for FP32 or 1 for INT8 if you have calibration.
+network-mode=2
+# Each GIE in the pipeline needs an ID so trackers/OSDs know which meta to read.
 gie-unique-id=1
+# 1 = primary detector (PGIE).  Use 2 for SGIE when chaining classifiers.
 process-mode=1
+# How many frames to skip between inferences.  0 = run on every frame.
 interval=0
-#onnx-file=/home/cmpe6012/ultralytics/yolo11s.onnx
+#onnx-file=/home/cmpe6012/ultralytics/yolo11s.onnx  # Original ONNX (kept for reference)
+# Prebuilt TensorRT engine.  Update this if you rebuild for another GPU.
 model-engine-file=/home/cmpe6012/DeepStream-Yolo/yolo11l_model_b1_gpu0_fp16.engine
-labelfile-path=/home/cmpe6012/DeepStream-Yolo/labels.txt
-num-detected-classes=80
+labelfile-path=/home/cmpe6012/DeepStream-Yolo/labels.txt  # COCO labels used for training
+num-detected-classes=80  # YOLO11l engine was trained on 80 COCO categories
 
 # YOLO custom parser for DS 6.3
 custom-lib-path=/home/cmpe6012/DeepStream-Yolo/nvdsinfer_custom_impl_Yolo/libnvdsinfer_custom_impl_Yolo.so
-parse-bbox-func-name=NvDsInferParseYolo
+parse-bbox-func-name=NvDsInferParseYolo  # Function exported by the custom parser
 
-
+# Maintain letterboxing to keep the model aspect ratio.
 maintain-aspect-ratio=1
 symmetric-padding=1
 
+# Keep the highest 300 detections per frame before NMS.
 topk=300
 
 # Optional: uncomment if your engine has dynamic input
 #network-input-shape=1;3;640;640
 
 [class-attrs-all]
-pre-cluster-threshold=0.7
-nms-iou-threshold=0.45
+pre-cluster-threshold=0.7  # Confidence threshold before clustering
+nms-iou-threshold=0.45  # IOU threshold used by NMS
