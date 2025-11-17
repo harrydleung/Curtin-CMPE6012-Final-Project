@@ -19,7 +19,12 @@ import threading
 import json
 
 
-#GPIO setup
+# GPIO setup ---------------------------------------------------------------
+# Each pin is wired to the corresponding animal indicator light on the
+# enclosure.  All pins default to HIGH (inactive) and are driven LOW whenever
+# the relevant species is detected as the largest bounding box in the frame.
+# Pin EN_GPIO_PIN is wired to an external switch used to pause/resume
+# inference without restarting the pipeline.
 
 GPIO.setmode(GPIO.BOARD)
 COW_GPIO_PIN=29
@@ -34,6 +39,7 @@ GPIO.setup(EN_GPIO_PIN, GPIO.IN)
 GPIO.add_event_detect(EN_GPIO_PIN, GPIO.BOTH)
 
 def GPIO_EN_cb(channel):
+    # Pause/resume the primary inference engine based on the GPIO level.
     level = GPIO.input(EN_GPIO_PIN)
     print(f"EN edge: level={level}")
     if pgie!=None:
@@ -57,16 +63,20 @@ pgie=None
 
 
 _fps_ts = defaultdict(lambda: deque(maxlen=60))
+# The sliding timestamp window above is indexed by source id and used by the
+# OSD pad probe to calculate a smoothed FPS value for the UI overlay.
 
 # ---------- helpers ----------
 
 def link_many(*elems):
+    # Link all provided GStreamer elements in order, raising on failure.
     for a, b in zip(elems, elems[1:]):
         if not a.link(b): raise RuntimeError(f"Failed to link {a.name} -> {b.name}")
     return True
 
 # ---------- probes ----------
 def osd_probe(pad, info, udata):
+    # Attach FPS/object-count text overlays to each frame.
     buf = info.get_buffer()
     if not buf:
         return Gst.PadProbeReturn.OK
@@ -122,6 +132,7 @@ def osd_probe(pad, info, udata):
     return Gst.PadProbeReturn.OK
 
 def largest_box_probe(pad, info, udata):
+    # Keep only the largest detection for the configured labels.
 
     KEEP_LABELS = { "cow",  "sheep", "horse"}
 
@@ -225,6 +236,7 @@ METRICS_LOCK = Lock()
 MAX_ALERTS = 20
 
 def push_alert(msg, now=None):
+    # Append a bounded alert entry to the metrics dictionary.
     if now is None: now = time.time()
     metrics["alerts"].append({"t": now, "msg": msg})
     if len(metrics["alerts"]) > MAX_ALERTS:
@@ -232,6 +244,7 @@ def push_alert(msg, now=None):
 
 # for web server probe
 def analytics_probe(pad, info, udata):
+    # Collect per-frame stats that will be exposed via the HTTP endpoint.
     try:
         buf = info.get_buffer()
         if not buf:
@@ -307,6 +320,7 @@ def analytics_probe(pad, info, udata):
 
 # run web server
 def run_webserver():
+    # Start a lightweight HTTP server that exposes current metrics.
     class Handler(SimpleHTTPRequestHandler):
         def log_message(self, fmt, *args):  # quiet logs
             pass
