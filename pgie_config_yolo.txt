@@ -1,0 +1,32 @@
+# pgie_config_yolo.txt (animal-only, DeepStream 6.3 paths)
+[property]
+net-scale-factor=0.0039215697906911373
+gpu-id=0
+batch-size=1 
+workspace-size=2048
+network-type=0
+network-mode=2   
+gie-unique-id=1
+process-mode=1
+interval=0
+#onnx-file=/home/cmpe6012/ultralytics/yolo11s.onnx
+model-engine-file=/home/cmpe6012/DeepStream-Yolo/yolo11l_model_b1_gpu0_fp16.engine
+labelfile-path=/home/cmpe6012/DeepStream-Yolo/labels.txt
+num-detected-classes=80
+
+# YOLO custom parser for DS 6.3
+custom-lib-path=/home/cmpe6012/DeepStream-Yolo/nvdsinfer_custom_impl_Yolo/libnvdsinfer_custom_impl_Yolo.so
+parse-bbox-func-name=NvDsInferParseYolo
+
+
+maintain-aspect-ratio=1
+symmetric-padding=1
+
+topk=300
+
+# Optional: uncomment if your engine has dynamic input
+#network-input-shape=1;3;640;640
+
+[class-attrs-all]
+pre-cluster-threshold=0.7
+nms-iou-threshold=0.45
