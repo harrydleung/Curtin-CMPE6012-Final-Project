@@ -19,7 +19,10 @@ import threading
 import json
 
 
-#GPIO setup
+# GPIO setup ---------------------------------------------------------------
+# Replicates the same wiring as the standalone camera script.  Comments are
+# duplicated here so the web-enabled variant is self-documenting even when the
+# files diverge in the future.
 
 GPIO.setmode(GPIO.BOARD)
 COW_GPIO_PIN=29
@@ -34,6 +37,7 @@ GPIO.setup(EN_GPIO_PIN, GPIO.IN)
 GPIO.add_event_detect(EN_GPIO_PIN, GPIO.BOTH)
 
 def GPIO_EN_cb(channel):
+    # Toggle nvinfer execution whenever the physical enable switch flips.
     level = GPIO.input(EN_GPIO_PIN)
     print(f"EN edge: level={level}")
     if pgie!=None:
@@ -57,16 +61,20 @@ pgie=None
 
 
 _fps_ts = defaultdict(lambda: deque(maxlen=60))
+# The same fixed-size deque approach is reused so that this script can expose
+# a smoothed FPS figure through both the overlay and the REST endpoint.
 
 # ---------- helpers ----------
 
 def link_many(*elems):
+    # Link all provided GStreamer elements in order, raising on failure.
     for a, b in zip(elems, elems[1:]):
         if not a.link(b): raise RuntimeError(f"Failed to link {a.name} -> {b.name}")
     return True
 
 # ---------- probes ----------
 def osd_probe(pad, info, udata):
+    # Attach FPS/object-count text overlays to each frame.
     buf = info.get_buffer()
     if not buf:
         return Gst.PadProbeReturn.OK
@@ -122,6 +130,7 @@ def osd_probe(pad, info, udata):
     return Gst.PadProbeReturn.OK
 
 def largest_box_probe(pad, info, udata):
+    # Keep only the largest detection for the configured labels.
 
     KEEP_LABELS = { "cow",  "sheep", "horse"}
 
@@ -225,6 +234,7 @@ METRICS_LOCK = Lock()
 MAX_ALERTS = 20
 
 def push_alert(msg, now=None):
+    # Append a bounded alert entry to the metrics dictionary.
     if now is None: now = time.time()
     metrics["alerts"].append({"t": now, "msg": msg})
     if len(metrics["alerts"]) > MAX_ALERTS:
@@ -232,6 +242,7 @@ def push_alert(msg, now=None):
 
 # for web server probe
 def analytics_probe(pad, info, udata):
+    # Collect per-frame stats that will be exposed via the HTTP endpoint.
     try:
         buf = info.get_buffer()
         if not buf:
@@ -307,6 +318,7 @@ def analytics_probe(pad, info, udata):
 
 # run web server
 def run_webserver():
+    # Start a lightweight HTTP server that exposes current metrics.
     class Handler(SimpleHTTPRequestHandler):
         def log_message(self, fmt, *args):  # quiet logs
             pass
